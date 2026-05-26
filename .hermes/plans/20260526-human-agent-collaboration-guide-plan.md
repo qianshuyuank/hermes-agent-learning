@@ -1,0 +1,104 @@
+# 人机协作指南 (Human-Agent Collaboration Guide) Implementation Plan
+
+> **For Hermes:** Use subagent-driven-development skill to implement this plan task-by-task.
+
+**Goal:** 基于已确定的设计规范（Role-based 方案），在项目中创建一份完整、可读性高的 Markdown 格式人机协作指南文档。
+
+**Architecture:** 单文件 Markdown 文档，存放在 `docs/hermes-human-agent-collaboration-guide.md`，并在项目根目录的 `README.md` 中增加跳转链接。
+
+**Tech Stack:** Markdown
+
+---
+
+### Task 1: 创建协作指南文档草稿
+**Objective:** 根据 `.hermes/plans/20260526-human-agent-collaboration-guide-design.md` 中的设计规范，编写指南正文。
+
+**Files:**
+- Create: `docs/hermes-human-agent-collaboration-guide.md`
+
+**Step 1: 写入内容**
+在 `docs/hermes-human-agent-collaboration-guide.md` 中写入如下内容：
+
+```markdown
+# 基于角色的 Hermes 人机协作指南 (Human-Agent Collaboration Guide)
+
+欢迎阅读 Hermes 人机协作指南！在 AI Agent 辅助开发的模式下，明确职责边界和协作契约，是保证项目高效、安全推进的关键。
+
+## 1. 核心理念 (Philosophy)
+
+* **交响乐团指挥 (Orchestrator)**：人类开发者是架构的设计者和流程的把控者。
+* **专业乐手 (Specialized Worker)**：Hermes Agent 是负责具体执行、验证假设和搜集信息的专业人员。
+* **我们的共识**：AI 并不是来取代人类做架构决策的，而是作为力量倍增器（Force Multiplier），加速“想清楚”之后的“做出来”过程。
+
+## 2. 人类职责与最佳实践 (The Human Orchestrator)
+
+人类开发者在协作中需要承担起“方向盘”和“刹车”的作用：
+
+* **提供高密度的上下文**：在发起任务时，避免“帮我写个登录页面”这种笼统指令。请使用“目标 + 约束条件 + 相关文件路径”。例如：“在 `src/auth.py` 中实现 JWT 登录，不能引入外部库，参考现有的 `utils.crypto`”。
+* **把控架构边界**：系统的核心数据结构、模块边界划分、API 契约等高维度设计，必须由人类决策并确认后，再交由 Agent 编码实现。
+* **高标准的 Code Review**：审查 Agent 生成的代码时，不仅要看主逻辑是否跑通，更要重点检查**边界处理**、**安全防御**以及**是否存在过度设计（Over-engineering）**。
+* **及时干预与刹车**：当发现 Agent 在某个错误上陷入“死循环调试”，或者方向偏离初衷时，请立即喊停（发送明确的 Stop 指令），并重新梳理上下文引导其回到正轨。
+
+## 3. Hermes Agent 的职责 (The AI Worker)
+
+作为 AI Worker，Hermes 将严格遵守以下行为准则：
+
+* **谋定而后动**：在提问或执行可能有破坏性的行动前，必须先主动利用工具（如搜索文件、阅读代码）去了解现有项目模式和上下文。
+* **小步验证原则**：遵循测试驱动开发（TDD）或渐进式开发。写一小段逻辑后，必须运行相关测试进行验证，绝不“憋大招”一次性提交几百行未经测试的代码。
+* **主动暴露不确定性**：遇到模糊的需求，或者面临多个合理的技术选项且人类未指定时，停止自行猜测，主动向人类发起澄清（Clarification）。
+* **知识沉淀闭环**：任务完成后，对于踩过的坑、新发现的业务逻辑特性或成功跑通的复杂工作流，主动总结并记录到 Memory 或固化为可复用的 Skill。
+
+## 4. 权限与红线 (Permissions & Hard Boundaries)
+
+为了保证代码库的安全与稳定，设定以下不可逾越的红线：
+
+* **代码合并限制**：Agent 生成的代码应推送到独立的 Feature 分支，或者直接在本地由人类 Review 确认。**严禁**未经授权直接向 `main` 等保护分支 push 代码。
+* **高危操作确认**：涉及删除数据、修改云端基础设施配置、执行可能有不可逆影响的终端命令时，必须等待人类显式授权。
+* **拒绝静默失败**：对于后台构建、测试等长时间运行的任务，任务结束（无论成功或失败）时必须向人类显式报告状态，不能装作无事发生。
+
+## 5. 切换与交接协议 (Handoff Protocols)
+
+人机切换工作流时，应当遵循标准的交接礼仪：
+
+* **Agent 交接给人类**：“我已经完成了 [模块 X] 和 [模块 Y]。但在 [功能 Z] 的实现上遇到报错 [报错信息]。建议您检查一下 [相关文件 W] 的权限设置。”
+* **人类交接给 Agent**：“接管当前的 `feature-login` 分支。请查看上一个 commit 中新增的 `test_auth.py`，它目前运行失败，请分析并修复报错。”
+
+---
+*本文档为持续演进的活文档，在未来的开发过程中，我们将根据实际协作痛点不断完善这套契约。*
+```
+
+**Step 2: 验证**
+利用 terminal 执行 `cat docs/hermes-human-agent-collaboration-guide.md`，检查文件是否成功创建且内容符合预期。
+
+**Step 3: 提交**
+```bash
+git add docs/hermes-human-agent-collaboration-guide.md
+git commit -m "docs: add human-agent collaboration guide"
+```
+
+---
+
+### Task 2: 在 README.md 中添加指南链接
+**Objective:** 将新创建的协作指南入口添加到项目的 README 文件中，方便团队成员查阅。
+
+**Files:**
+- Modify: `README.md`
+
+**Step 1: 写入修改内容**
+使用 `patch` 工具或 `execute_code` 读取并在 `README.md` 文件的适当位置（例如项目说明之后或文档列表部分）添加指南的超链接。
+
+预期的修改内容（假设将其加在文档链接列表）：
+```markdown
+## 文档
+- [Hermes Memory 系统指南](docs/hermes-memory-system-guide.md)
+- [Hermes 人机协作指南 (Human-Agent Collaboration Guide)](docs/hermes-human-agent-collaboration-guide.md)
+```
+
+**Step 2: 验证**
+运行 `git diff README.md`，确认仅仅添加了新文档的链接，未破坏原有内容。
+
+**Step 3: 提交**
+```bash
+git add README.md
+git commit -m "docs: link collaboration guide in README"
+```
