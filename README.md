@@ -57,6 +57,11 @@ himalaya template send
 
 待补充...
 
+## 文档
+
+- [Hermes Memory 系统指南](docs/hermes-memory-system-guide.md)
+- [Hermes 人机协作指南 (Human-Agent Collaboration Guide)](docs/hermes-human-agent-collaboration-guide.md)
+
 ---
 
 *学习日期：2026-05-24*
