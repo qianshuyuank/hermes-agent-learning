@@ -43,6 +43,24 @@ terminal:
   auto_source_bashrc: false
 ```
 
+### 1.5 `systemd` 服务未显式带 `-config` 导致配置漂移
+如果 `cli-proxy-api` 是通过 `systemd --user` 开机自启动，但 `cliproxyapi.service` 的 `ExecStart` 只是：
+```ini
+ExecStart=/home/bitq/cliproxyapi/cli-proxy-api
+```
+那么服务重启、登录恢复或异常拉起后，代理进程可能不会使用预期的 `~/.cli-proxy-api/config.yaml`。
+这会导致表面上配置文件内容是对的，但实际运行进程加载的是另一套默认配置，从而再次出现 `Invalid API key`。
+
+**修复方法**：将 `cliproxyapi.service` 改为显式带上配置路径：
+```ini
+ExecStart=/home/bitq/cliproxyapi/cli-proxy-api -config /home/bitq/.cli-proxy-api/config.yaml
+```
+修改后执行：
+```bash
+systemctl --user daemon-reload
+systemctl --user restart cliproxyapi.service
+```
+
 ---
 
 ## 2. 修复实施步骤 (Checklist)
@@ -66,11 +84,16 @@ terminal:
 配置修改后，**必须**重启所有相关后台进程：
 
 ```bash
-# 1. 重启代理服务 (必须带上 -config 参数指定绝对路径，否则代理可能因找不到配置文件而崩溃)
+# 1. 如果你是手动运行代理，重启代理服务 (必须带上 -config 参数指定绝对路径，否则代理可能因找不到配置文件而崩溃)
 pkill -f "cli-proxy-api"
 /home/bitq/cliproxyapi/cli-proxy-api -config ~/.cli-proxy-api/config.yaml > ~/.cli-proxy-api/proxy.log 2>&1 &
 
-# 2. 重启 Hermes 守护进程
+# 2. 如果你是通过 systemd --user 管理服务，优先使用 systemd 重启
+systemctl --user daemon-reload
+systemctl --user restart cliproxyapi.service
+systemctl --user restart hermes-gateway.service
+
+# 3. 重启 Hermes 守护进程 (非 systemd 场景)
 hermes gateway restart
 ```
 
@@ -96,6 +119,7 @@ hermes -z "Use Skill: brainstorming"
 - 第三个命令用于触发辅助模型/Skill 链路，但它**不是最理想的 oneshot 健康检查**，因为 `brainstorming` 本身是偏交互式的 Skill，可能进入等待提问、等待确认，或者在 CLI 中表现为卡住后被手动中断。
 - 因此，若执行 `hermes -z "Use Skill: brainstorming"` 时没有直接出现 `401`，而是表现为等待、中断，或后续出现 `500`，不要再将其归类为鉴权问题，应结合代理日志继续区分是 Skill 的交互特性，还是上游网络问题。
 - 如果你已经修复主模型、辅助模型和代理配置，但只要重新打开 Hermes 终端就再次出现 `401`，应优先检查是否是新终端重新 source `~/.bashrc` 导致环境变量重新污染。
+- 如果你确认 `~/.cli-proxy-api/config.yaml` 内容正确，但 `curl` 直连代理又重新返回 `Invalid API key`，应继续检查 `cliproxyapi.service` 的 `ExecStart` 是否漏掉了 `-config /home/bitq/.cli-proxy-api/config.yaml`。
 - 建议在修改终端配置后，关闭当前 Hermes 会话，重新打开一个全新的 Hermes 终端，再重复执行 `hermes -z "test"` 与必要的 Skill 验证。
 - 建议同时检查代理日志：
 ```bash
@@ -115,8 +139,11 @@ tail -n 50 ~/.cli-proxy-api/proxy.log
 - `curl` 直连本地代理成功：说明 `cli-proxy-api` 配置与 `Authorization: Bearer local-proxy-key` 已经匹配。
 - `hermes -z "test"` 成功：说明 Hermes 主模型链路已经不再触发 `401`。
 - `hermes -z "Use Skill: brainstorming"` 未再出现 `401`，但在代理日志中可见多次 `200` 后出现单个 `500`：这说明辅助模型链路的鉴权也已经基本恢复，剩余问题更接近上游超时、Google OAuth 请求失败，或宿主机网络代理规则未覆盖到 Gemini 相关流量。
+- 当 `cli-proxy-api` 进程是手动用 `-config /home/bitq/.cli-proxy-api/config.yaml` 启动时，`Invalid API key` 可消失；若稍后又重新出现本地 `Invalid API key`，而配置文件本身并未改动，则应优先怀疑 `systemd --user` 重新拉起了一个**不带 `-config`** 的代理进程。
+- 因此，在使用 `systemd --user` 自启动的机器上，单纯手动拉起一次正确命令并不能根治问题，必须同时修正 `cliproxyapi.service` 的 `ExecStart`。
 
 换言之：
 
 - **`401 Invalid API key`**：优先排查本地配置、辅助模型覆盖、环境变量污染、服务未重启。
+- **配置文件正确但仍反复出现 `Invalid API key`**：优先排查 `cliproxyapi.service` 是否未显式带 `-config`，导致运行态配置与文件配置不一致。
 - **`500 Internal Server Error` / `TCP timeout` / `oauth2.googleapis.com` 超时**：优先排查宿主机网络、TUN 模式、全局代理、DNS 或出口连通性。
