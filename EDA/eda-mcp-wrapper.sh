@@ -7,23 +7,12 @@ RUNTIME_DIR="${XDG_RUNTIME_DIR:-/run/user/$(id -u)}"
 GATEWAY_PID_FILE="$RUNTIME_DIR/eda-gateway.pid"
 
 start_gateway() {
-    if lsof -i :"$GATEWAY_PORT" >/dev/null 2>&1; then
-        return 0
+    if [ -f "$HOME/.nvm/nvm.sh" ]; then
+        export NVM_DIR="$HOME/.nvm"
+        . "$NVM_DIR/nvm.sh"
     fi
-
-    (
-        cd "$GATEWAY_DIR" || exit 1
-        nohup node server.js >/dev/null 2>&1 &
-        echo $! > "$GATEWAY_PID_FILE"
-    )
-
-    for _ in 1 2 3 4 5 6 7 8 9 10; do
-        if lsof -i :"$GATEWAY_PORT" >/dev/null 2>&1; then
-            return 0
-        fi
-        sleep 0.5
-    done
-    return 1
+    cd "$GATEWAY_DIR" || exit 1
+    exec node server.js
 }
 
 stop_gateway_if_present() {
