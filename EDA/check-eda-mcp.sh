@@ -6,6 +6,7 @@ GATEWAY_WS_URL="ws://127.0.0.1:${GATEWAY_PORT}/ws/bridge"
 HERMES_PROFILE="${HERMES_PROFILE:-$HOME/.hermes/profiles/hw-engineer/config.yaml}"
 EXPECTED_MCP_SERVER="$HOME/mcp-servers/jlcmcp/dist/index.js"
 LCEDA_CONFIG="$HOME/文档/LCEDA-Pro/config.json"
+MCP_PROCESS_PATTERN="node .*jlcmcp/dist/index.js"
 
 validate_hermes_profile() {
     python3 - "$HERMES_PROFILE" "$EXPECTED_MCP_SERVER" "$GATEWAY_WS_URL" <<'PY'
@@ -56,9 +57,9 @@ else
     echo "[✗] Gateway: 未运行"
 fi
 
-if pgrep -af "jlcmcp/dist/index.js" >/dev/null; then
+if pgrep -af "$MCP_PROCESS_PATTERN" >/dev/null; then
     echo "[*] MCP Server: 当前会话中运行"
-    pgrep -af "jlcmcp/dist/index.js"
+    pgrep -af "$MCP_PROCESS_PATTERN"
 else
     echo "[*] MCP Server: 当前未运行（这是正常的，Hermes 会按需通过 stdio 启动）"
 fi

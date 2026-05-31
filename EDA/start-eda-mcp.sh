@@ -6,6 +6,7 @@ GATEWAY_PORT=18800
 GATEWAY_WS_URL="ws://127.0.0.1:${GATEWAY_PORT}/ws/bridge"
 HERMES_PROFILE="${HERMES_PROFILE:-$HOME/.hermes/profiles/hw-engineer/config.yaml}"
 EXPECTED_MCP_SERVER="$HOME/mcp-servers/jlcmcp/dist/index.js"
+MCP_PROCESS_PATTERN="node .*jlcmcp/dist/index.js"
 
 validate_hermes_profile() {
     python3 - "$HERMES_PROFILE" "$EXPECTED_MCP_SERVER" "$GATEWAY_WS_URL" <<'PY'
@@ -71,9 +72,9 @@ validate_hermes_profile
 echo
 echo "=== 状态检查 ==="
 lsof -i :"$GATEWAY_PORT" | grep -v "^COMMAND" || echo "Gateway: 未运行"
-if pgrep -af "jlcmcp/dist/index.js" >/dev/null; then
+if pgrep -af "$MCP_PROCESS_PATTERN" >/dev/null; then
     echo "[*] MCP Server: 当前已有会话在运行"
-    pgrep -af "jlcmcp/dist/index.js"
+    pgrep -af "$MCP_PROCESS_PATTERN"
 else
     echo "[*] MCP Server: 按需启动（由 Hermes 通过 stdio 拉起）"
 fi
