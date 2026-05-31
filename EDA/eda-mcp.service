@@ -1,0 +1,16 @@
+[Unit]
+Description=EDA Gateway Service
+After=network.target
+
+[Service]
+Type=oneshot
+RemainAfterExit=yes
+User=bitq
+Environment="HOME=/home/bitq"
+ExecStart=/home/bitq/github/hermes-agent-learning/EDA/eda-mcp-wrapper.sh start
+ExecStop=/home/bitq/github/hermes-agent-learning/EDA/eda-mcp-wrapper.sh stop
+Restart=on-failure
+RestartSec=5
+
+[Install]
+WantedBy=multi-user.target

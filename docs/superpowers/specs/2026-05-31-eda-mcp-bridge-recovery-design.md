@@ -1,5 +1,7 @@
 # EDA MCP Bridge Recovery Design
 
+> Update on 2026-05-31 after root-cause verification: `jlcmcp/dist/index.js` is a stdio MCP server and exits normally when `stdin` is closed. It must be launched on demand by Hermes / the AI IDE, not backgrounded as a daemon from `EDA` shell scripts.
+
 ## Goal
 
 Restore the EasyEDA Pro / LCEDA Pro bridge connection that currently fails with:

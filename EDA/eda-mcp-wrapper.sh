@@ -1,21 +1,24 @@
 #!/bin/bash
-# EDA MCP 启动脚本（供 systemd service 使用）
-# 先启动 Gateway，等待就绪，再启动 MCP Server
+set -eu
 
 GATEWAY_DIR="$HOME/mcp-servers/jlcmcp/gateway"
-MCP_SERVER="$HOME/mcp-servers/jlcmcp/dist/index.js"
 GATEWAY_PORT=18800
-GATEWAY_PID_FILE="/run/eda-gateway.pid"
-MCP_PID_FILE="/run/eda-mcp.pid"
+RUNTIME_DIR="${XDG_RUNTIME_DIR:-/run/user/$(id -u)}"
+GATEWAY_PID_FILE="$RUNTIME_DIR/eda-gateway.pid"
 
 start_gateway() {
-    cd "$GATEWAY_DIR"
-    node server.js &
-    echo $! > "$GATEWAY_PID_FILE"
+    if lsof -i :"$GATEWAY_PORT" >/dev/null 2>&1; then
+        return 0
+    fi
 
-    # 等待 Gateway 就绪
-    for i in {1..10}; do
-        if lsof -i :$GATEWAY_PORT >/dev/null 2>&1; then
+    (
+        cd "$GATEWAY_DIR" || exit 1
+        nohup node server.js >/dev/null 2>&1 &
+        echo $! > "$GATEWAY_PID_FILE"
+    )
+
+    for _ in 1 2 3 4 5 6 7 8 9 10; do
+        if lsof -i :"$GATEWAY_PORT" >/dev/null 2>&1; then
             return 0
         fi
         sleep 0.5
@@ -23,20 +26,19 @@ start_gateway() {
     return 1
 }
 
-start_mcp() {
-    node "$MCP_SERVER" &
-    echo $! > "$MCP_PID_FILE"
+stop_gateway_if_present() {
+    if [ -f "$GATEWAY_PID_FILE" ]; then
+        kill "$(cat "$GATEWAY_PID_FILE")" 2>/dev/null || true
+        rm -f "$GATEWAY_PID_FILE"
+    fi
 }
 
-# 主逻辑
-case "$1" in
+case "${1:-}" in
     start)
-        start_gateway && start_mcp
+        start_gateway
         ;;
     stop)
-        [ -f "$MCP_PID_FILE" ] && kill $(cat "$MCP_PID_FILE") 2>/dev/null
-        [ -f "$GATEWAY_PID_FILE" ] && kill $(cat "$GATEWAY_PID_FILE") 2>/dev/null
-        rm -f "$MCP_PID_FILE" "$GATEWAY_PID_FILE"
+        stop_gateway_if_present
         ;;
     *)
         echo "Usage: $0 {start|stop}"
