@@ -1,94 +1,43 @@
 #!/bin/bash
-set -u
+# 启动 EDA MCP 环境
+# 1. Gateway (WebSocket 中转层)
+# 2. MCP Server (jlceda)
 
 GATEWAY_DIR="$HOME/mcp-servers/jlcmcp/gateway"
+MCP_SERVER="$HOME/mcp-servers/jlcmcp/dist/index.js"
 GATEWAY_PORT=18800
-GATEWAY_WS_URL="ws://127.0.0.1:${GATEWAY_PORT}/ws/bridge"
-EXPECTED_MCP_SERVER="$HOME/mcp-servers/jlcmcp/dist/index.js"
-MCP_PROCESS_PATTERN="node .*jlcmcp/dist/index.js"
-DEFAULT_HERMES_CONFIG="$HOME/.hermes/config.yaml"
-HW_ENGINEER_CONFIG="$HOME/.hermes/profiles/hw-engineer/config.yaml"
 
-resolve_hermes_profile() {
-    if [ -n "${HERMES_PROFILE:-}" ]; then
-        printf '%s\n' "$HERMES_PROFILE"
-    elif [ -f "$DEFAULT_HERMES_CONFIG" ]; then
-        printf '%s\n' "$DEFAULT_HERMES_CONFIG"
-    else
-        printf '%s\n' "$HW_ENGINEER_CONFIG"
-    fi
-}
+echo "=== 启动 EDA MCP 环境 ==="
 
-HERMES_PROFILE="$(resolve_hermes_profile)"
-
-validate_hermes_profile() {
-    python3 - "$HERMES_PROFILE" "$EXPECTED_MCP_SERVER" "$GATEWAY_WS_URL" <<'PY'
-import sys
-from pathlib import Path
-import yaml
-
-config_path = Path(sys.argv[1])
-expected_server = sys.argv[2]
-expected_url = sys.argv[3]
-
-if not config_path.exists():
-    print(f"[✗] Hermes profile 不存在: {config_path}")
-    raise SystemExit(1)
-
-data = yaml.safe_load(config_path.read_text()) or {}
-server = ((data.get("mcp_servers") or {}).get("jlceda") or {})
-args = server.get("args")
-env = server.get("env") or {}
-
-if server.get("command") != "node":
-    print("[✗] Hermes profile 的 jlceda.command 不是 node")
-    raise SystemExit(1)
-
-if not isinstance(args, list):
-    print(f"[✗] Hermes profile 的 jlceda.args 必须是 YAML 数组，当前是 {type(args).__name__}")
-    raise SystemExit(1)
-
-if args != [expected_server]:
-    print(f"[✗] Hermes profile 的 jlceda.args 不匹配: {args!r}")
-    raise SystemExit(1)
-
-if env.get("GATEWAY_WS_URL") != expected_url:
-    print(f"[✗] Hermes profile 的 GATEWAY_WS_URL 不匹配: {env.get('GATEWAY_WS_URL')!r}")
-    raise SystemExit(1)
-
-print(f"[✓] Hermes profile 已就绪: {config_path}")
-PY
-}
-
-echo "=== 启动 EDA Gateway 环境 ==="
-echo "[*] Gateway URL: $GATEWAY_WS_URL"
-
-if lsof -i :"$GATEWAY_PORT" >/dev/null 2>&1; then
+# 检查 gateway 是否运行
+if lsof -i :$GATEWAY_PORT >/dev/null 2>&1; then
     echo "[✓] Gateway 已在运行 (端口 $GATEWAY_PORT)"
 else
     echo "[*] 启动 Gateway..."
-    (
-        cd "$GATEWAY_DIR" || exit 1
-        nohup node server.js >/dev/null 2>&1 &
-    )
+    cd "$GATEWAY_DIR" && node server.js &
     sleep 1
-    if lsof -i :"$GATEWAY_PORT" >/dev/null 2>&1; then
+    if lsof -i :$GATEWAY_PORT >/dev/null 2>&1; then
         echo "[✓] Gateway 启动成功"
     else
         echo "[✗] Gateway 启动失败"
-        exit 1
     fi
 fi
 
-validate_hermes_profile
-
-echo
-echo "=== 状态检查 ==="
-lsof -i :"$GATEWAY_PORT" | grep -v "^COMMAND" || echo "Gateway: 未运行"
-if pgrep -af "$MCP_PROCESS_PATTERN" >/dev/null; then
-    echo "[*] MCP Server: 当前已有会话在运行"
-    pgrep -af "$MCP_PROCESS_PATTERN"
+# 检查 MCP server 是否运行
+if pgrep -f "jlcmcp/dist/index.js" >/dev/null; then
+    echo "[✓] MCP Server 已在运行"
 else
-    echo "[*] MCP Server: 按需启动（由 Hermes 通过 stdio 拉起）"
+    echo "[*] 启动 MCP Server..."
+    node "$MCP_SERVER" &
+    sleep 1
+    if pgrep -f "jlcmcp/dist/index.js" >/dev/null; then
+        echo "[✓] MCP Server 启动成功"
+    else
+        echo "[✗] MCP Server 启动失败"
+    fi
 fi
-echo "[*] 下一步: 重启 Hermes 或新开一个启用 jlceda 的会话"
+
+echo ""
+echo "=== 状态检查 ==="
+lsof -i :$GATEWAY_PORT | grep -v "^COMMAND" || echo "Gateway: 未运行"
+pgrep -f "jlcmcp/dist/index.js" >/dev/null && echo "MCP Server: 运行中" || echo "MCP Server: 未运行"

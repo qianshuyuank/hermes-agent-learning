@@ -27,23 +27,19 @@
 
 ## 启动步骤
 
-### 1. 启动 Gateway（中转层，常驻）
-
-```bash
-cd ~/github/hermes-agent-learning/EDA && ./start-eda-mcp.sh
-```
-
-或手动启动：
+### 1. 启动 Gateway（中转层）
 
 ```bash
 cd ~/mcp-servers/jlcmcp/gateway && node server.js
 ```
 
-### 2. 配置 Hermes profile
+### 2. 启动 MCP Server
 
-注意：`jlcmcp/dist/index.js` 是 **stdio MCP Server**，应由 Hermes / AI IDE 在需要时按会话拉起，**不要**把它当成后台常驻守护进程直接 `node ... &` 启动。否则标准输入关闭后它会立即退出。
+```bash
+node /home/bitq/mcp-servers/jlcmcp/dist/index.js
+```
 
-`~/.hermes/profiles/hw-engineer/config.yaml` 必须使用 **YAML 数组** 形式的 `args`：
+### 3. 配置 Hermes profile
 
 `~/.hermes/profiles/hw-engineer/config.yaml`:
 
@@ -51,23 +47,10 @@ cd ~/mcp-servers/jlcmcp/gateway && node server.js
 mcp_servers:
   jlceda:
     command: node
-    args:
-      - /home/bitq/mcp-servers/jlcmcp/dist/index.js
+    args: ['/home/bitq/mcp-servers/jlcmcp/dist/index.js']
     env:
       GATEWAY_WS_URL: ws://127.0.0.1:18800/ws/bridge
 ```
-
-错误示例：
-
-```yaml
-args: "['/home/bitq/mcp-servers/jlcmcp/dist/index.js']"
-```
-
-上面这种写法会把 `args` 解析成字符串，导致 Hermes 无法正确启动 `jlceda`。
-
-### 3. 重启 Hermes / 新开会话
-
-完成 Gateway 启动和 profile 配置后，重启 Hermes 或新开一个启用 `hw-engineer` profile 的会话。此时 Hermes 会通过 stdio 按需启动 `jlceda`。
 
 ## LCEDA Pro 配置
 
@@ -104,9 +87,9 @@ sed -i 's/"type": "OFFLINE"/"type": "ONLINE"/' ~/文档/LCEDA-Pro/config.json
 
 | 脚本 | 功能 |
 |------|------|
-| `start-eda-mcp.sh` | 启动 Gateway，并校验 Hermes 的 `jlceda` 配置 |
-| `check-eda-mcp.sh` | 检查 Gateway、Hermes profile 和 LCEDA 模式 |
-| `stop-eda-mcp.sh` | 停止手动启动的 MCP 进程（如存在） |
+| `start-eda-mcp.sh` | 一键启动 Gateway + MCP Server |
+| `check-eda-mcp.sh` | 检查环境状态 |
+| `stop-eda-mcp.sh` | 停止 MCP Server |
 
 ## 常见问题
 
@@ -118,9 +101,8 @@ sed -i 's/"type": "OFFLINE"/"type": "ONLINE"/' ~/文档/LCEDA-Pro/config.json
 
 检查顺序：
 1. Gateway 是否运行 (`lsof -i :18800`)
-2. Hermes profile 的 `jlceda.args` 是否为 YAML 数组
-3. 是否已重启 Hermes / 新开会话，让 MCP Server 通过 stdio 按需启动
-4. LCEDA 是否开启外部交互权限
+2. MCP Server 是否运行 (`pgrep -f jlcmcp`)
+3. LCEDA 是否开启外部交互权限
 
 ### Q: MCP Server 启动报错 "Cannot find module"
 

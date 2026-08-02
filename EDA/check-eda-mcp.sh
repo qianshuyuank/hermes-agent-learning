@@ -3,23 +3,10 @@ set -u
 
 GATEWAY_PORT=18800
 GATEWAY_WS_URL="ws://127.0.0.1:${GATEWAY_PORT}/ws/bridge"
+HERMES_PROFILE="${HERMES_PROFILE:-$HOME/.hermes/profiles/hw-engineer/config.yaml}"
 EXPECTED_MCP_SERVER="$HOME/mcp-servers/jlcmcp/dist/index.js"
 LCEDA_CONFIG="$HOME/文档/LCEDA-Pro/config.json"
 MCP_PROCESS_PATTERN="node .*jlcmcp/dist/index.js"
-DEFAULT_HERMES_CONFIG="$HOME/.hermes/config.yaml"
-HW_ENGINEER_CONFIG="$HOME/.hermes/profiles/hw-engineer/config.yaml"
-
-resolve_hermes_profile() {
-    if [ -n "${HERMES_PROFILE:-}" ]; then
-        printf '%s\n' "$HERMES_PROFILE"
-    elif [ -f "$DEFAULT_HERMES_CONFIG" ]; then
-        printf '%s\n' "$DEFAULT_HERMES_CONFIG"
-    else
-        printf '%s\n' "$HW_ENGINEER_CONFIG"
-    fi
-}
-
-HERMES_PROFILE="$(resolve_hermes_profile)"
 
 validate_hermes_profile() {
     python3 - "$HERMES_PROFILE" "$EXPECTED_MCP_SERVER" "$GATEWAY_WS_URL" <<'PY'

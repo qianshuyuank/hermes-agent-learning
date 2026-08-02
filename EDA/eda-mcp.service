@@ -1,12 +1,14 @@
 [Unit]
-Description=EDA Gateway Service
+Description=EDA MCP Service (Gateway + Server)
 After=network.target
 
 [Service]
-Type=simple
+Type=oneshot
+RemainAfterExit=yes
 User=bitq
 Environment="HOME=/home/bitq"
 ExecStart=/home/bitq/github/hermes-agent-learning/EDA/eda-mcp-wrapper.sh start
+ExecStop=/home/bitq/github/hermes-agent-learning/EDA/eda-mcp-wrapper.sh stop
 Restart=on-failure
 RestartSec=5
 
