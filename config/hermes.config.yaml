@@ -1,7 +1,7 @@
 model:
   api_key: local-proxy-key
   base_url: http://localhost:8317/v1
-  default: gemini-3.1-pro-preview
+  default: "minmax M3"
   provider: custom
 providers: {}
 fallback_providers: []
